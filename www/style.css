@@ -1,12 +1,16 @@
 body { 
 	background: #dddddd; 
-	}
+}
 
 #container { 
-	background: #dddddd; 
-	}
+	background: #dddddd;
+}
+.warning {
+	color: red;
+	font-size: 20pt;
+}
 
-#pageHeader h1 { 
+#pageHeader { 
 	background: MidnightBlue; 
 	margin-top: 10px; 
 	margin-left: 25px; 
@@ -14,133 +18,147 @@ body {
 	width: 220px; 
 	height: 37px; 
 	padding: 0px 10px 0px 10px; 
-        font-size: 30pt;
-        font-weight: bold;
+	font-size: 30pt;
+	font-weight: bold;
 	color: white;
-	}
+}
 
-#pageHeader h2 { 
+#pageTitle { 
 	margin-top: 0px; 
 	background: white; 
 	height: 18px; 
 	padding: 0px 0px 0px 20px; 
-        font-size: 12pt;
+	font-size: 12pt;
 	color: MidnightBlue;
 	margin-bottom: 20px;
 	border: MidnightBlue solid thin;
-	}
+}
 
 .navigation  {
 	margin-top: 20px; 
 	margin-bottom: 20px; 
-        font-size: 10pt;
+	font-size: 10pt;
 	text-align: center; 
-        padding-bottom:1em;
+	padding-bottom:1em;
 	width: 780px;
-	}
+}
 
 a       {
 	color: #003399;
-        }
+}
 
 a:visited {
 	color: #663399;
-	}
+}
 
 #posts { 
 	margin-left: 20px;
-	}
+}
 
 #posts h3 {
 	color: #1E90FF;
-	}
+}
 
 #posts_table { 
 	margin: 10px 0px 10px 0px;
 	border: MidnightBlue solid thin;
-	}
+}
 
 .posts_head {
 	color: inherit;
 	background-color: #E8EBEF;
 	border: #B1BDC9 solid thin;
-	}
+}
 
 table {
 	border-collapse: collapse;
 	border-spacing: 0;
 	border-width: 0;
 	color: inherit;
-	}
+}
 
 .odd {
-	background: #20B2AA;
+	/*background: #20B2AA;*/
+	background: #AAAAAA;
 	color: inherit; 
-	}
+}
 
 .odd TD, .even TD {
-	padding: 3ex 0ex 3ex 1ex;
+	padding: 0ex 0ex 0ex 1ex;
 	vertical-align: baseline;
-	}
+}
 
 .threads_odd TD {
 	background: #dddddd;
-	}
+	border-style: solid;
+	border-width: 1;
+	border-color: yellow;
+}
+
+.threads_even TD {
+/*	background: #dddddd;*/
+	border-style: solid;
+	border-width: 1;
+	border-color: yellow;
+}
+
 
 .col1 {
-	width: 20%;
-	}
+	width: 25%;
+}
 
 .col2 {
 	width: 40%;
-	}
+}
 
 .col3 {
-	width: 10%;
-	}
+	width: 5%;
+}
 
 .col4 {
-	width: 10%;
-	}
+	width: 20%;
+}
 
 .col5 {
-	width: 20%;
-	}
+	width: 10%;
+}
 
 .faq {
 	padding: 0.2ex 0.4ex;
-	}
+}
 
 .faq dt {
 	font-size: 1.2em;
 	font-weight: bold;
-	}
+}
 
 .faq dd {
 	margin-bottom: 10px;
-	}
+}
 
-#about_list1 h2 {
+.about_list {
 	font-size: 14pt;
-	}
+}
 
-#about_list2 h2 {
-	font-size: 14pt;
-	}
+.about_title {
+	margin-top: 0px; 
+	background: white; 
+	height: 18px; 
+	padding: 0px 0px 0px 20px; 
+	font-size: 12pt;
+	color: MidnightBlue;
+	margin-bottom: 20px;
+	border: MidnightBlue solid thin;
+}
+}
 
-#about_list3 h2 {
-	font-size: 14pt;
-	}
 
-#about_list4 h2 {
-	font-size: 14pt;
-	}
 #posting_rules {
 	margin-top: 10px;
-	}
+}
 
 /*
- does not work ?
+does not work ?
 .threads TABLE {
 }
 */
@@ -210,27 +228,29 @@ input {
 
 /* ?? */
 .menubar {
-  background: #006699;
-  margin: 1ex 0;
-  padding: 1px;
+	background: #006699;
+	margin: 1ex 0;
+	padding: 1px;
 } 
 
 .menubar A {
-  padding: 0.8ex;
-  font: bold 10pt Arial,Helvetica,sans-serif;
+	padding: 0.8ex;
+	font: bold 10pt Arial,Helvetica,sans-serif;
 }
 
 .menubar A:link, .menubar A:visited {
-  color: white;
-  text-decoration: none;
+	color: white;
+	text-decoration: none;
 }
 
 .menubar A:hover {
-  color: #ff6600;
-  text-decoration: underline;
+	color: #ff6600;
+	text-decoration: underline;
 }
 
 TD {
-  margin:  0;
-  padding: 0;
+	margin:  0;
+	padding: 0;
 }
+
+

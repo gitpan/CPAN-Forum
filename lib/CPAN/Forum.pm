@@ -2,7 +2,7 @@ package CPAN::Forum;
 use strict;
 use warnings;
 
-our $VERSION = "0.09_02";
+our $VERSION = "0.09_03";
 
 use base "CGI::Application";
 use CGI::Application::Plugin::Session;
@@ -18,7 +18,6 @@ use CPAN::Forum::INC;
 my $limit       = 3;
 my $limit_rss   = 10;
 my $cookiename  = "cpanforum";
-my $FROM;
 
 my %errors = (
 	"ERR no_less_sign"              => "No < sign in text",
@@ -29,7 +28,7 @@ my %errors = (
 
 =head1 NAME
 
-CPAN::Forum - Web forum appliation to discuss CPAN modules
+CPAN::Forum - Web forum application to discuss CPAN modules
 
 =head1 SYNOPSIS
 
@@ -40,7 +39,7 @@ CPAN::Forum - Web forum appliation to discuss CPAN modules
 This is a Web forum application specifically designed to be used for
 discussing CPAN modules. At one point it might be adapted to be a general
 forum software but for now it is released in the hope that people
-will help improving it and by that improving the L<http://www.cpanforum.org/> site.
+will help improving it and by that improving the L<http://www.cpanforum.com/> site.
 
 =head2 Features
 
@@ -118,41 +117,50 @@ pointed to your server.
 
 =head2 Install the perl code
 
-perl Build.PL
-./Build
-./Build test
-./Build install dir=/path/to/install
-cd /path/to/install
+ perl Build.PL
+ ./Build
+ ./Build test
+ ./Build install dir=/path/to/install
+ cd /path/to/install
+
+ chmod a+x www/cgi/index.pl  (needed only if you work out of the repository)
+ chmod a+x db/forum.db       (or whatever you need to make sure the database is writable by the web server.
+
+ manually edit the www/cgi/index.pl file and set the sh-bang to the correct one
+
 
 =head2 Setup the database
 
 In the directory where you installed the modules create
 a file called CONFIG (see t/CONFIG for an example). 
 Having the following fileds:
-username=        the user name of the administrator
-email=           of the administrator
-password=        the password of the administrator
-from=            email address to be used as the from address in the messages sent
-                 by the system
+
+ username=        the user name of the administrator
+ email=           of the administrator
+ password=        the password of the administrator
+ from=            email address to be used as the from address in the messages sent
+                  by the system
 
 You will be able to change all these values later from the web interface but we need
 to have the first values.
 
-perl bin/setup.pl 
+ perl bin/setup.pl 
 
-    (you can now delete the CONFIG file)
+(you can now delete the CONFIG file)
 
-perl bin/populate.pl    (this will fetch a file from www.cpan.org and 
-                        might take a few minutes to run)
+ perl bin/populate.pl    (this will fetch a file from www.cpan.org and 
+                         might take a few minutes to run)
 
 
 
-CPAN_FORUM_URL
----------------
+=head2 CPAN_FORUM_URL
+
 For some of the tests you'll have to set the CPAN_FORUM_URL environment variable 
 to the URL where you installed the forum.
 
 =head2 Changes
+
+Will come here after we start to accumulate them
 
 =head2 TODO Critical for launching
 
@@ -165,6 +173,23 @@ to the URL where you installed the forum.
 - Improve Legal statement, look at other sites.
 
 =head2 TODO other, TBD
+
+
+clean documentation
+check all submitted fields (restrict posting size to 10.000 Kbyte ?
+
+add indexes to the tables
+
+post link should give a search box that will let the user search
+within the names of the modules. The result should be a restricted
+list with only a few module names in a pull-down menu like we have now.
+The search can be regular SQL LIKE search and the user can add % signs
+to use as wide cards
+
+show the release dates of the various versions of a module so
+it is easy to compare that to the post.
+
+
 
 Authentication and user management process:
   - new user comes to our site we give him a cookie, when he wants to login we offer him
@@ -197,7 +222,7 @@ Not nice, any better way ?
 - Finalize markup
 
   Subject field:
-  -  <= 70 chars
+  -  <= 50 chars
   -  Can contain any characters, we'll escape them when showing on the web site
  
   Text field:
@@ -411,7 +436,7 @@ sub cgiapp_init {
 			module            => 'Log::Dispatch::File',
 			name              => 'messages',
 			filename          => '/tmp/messages.log',
-			min_level         => 'error',
+			min_level         => 'debug',
 			mode              => 'append',
 			close_after_write => 1,
 		},
@@ -456,20 +481,22 @@ my @free_modes = qw(home
 					about faq
 					posts threads dist users 
 					search all 
+					help
 					rss ); 
-			#response_form 
 my @restricted_modes = qw(
 			new_post process_post
 			mypan 
+			response_form 
 			selfconfig change_password update_subscription); 
 			
-	#response_form 
 my @urls = qw(
 	logout 
+	help
 	new_post pwreminder 
 	login register 
 	posts about 
 	threads dist users 
+	response_form 
 	faq 
 	mypan selfconfig 
 	search all rss); 
@@ -539,8 +566,9 @@ sub cgiapp_prerun {
 	}
 
 
-	my ($field) = CPAN::Forum::Configure->search({field => "from"});
-	$FROM = $field->value;
+	#my ($field) = CPAN::Forum::Configure->search({field => "from"});
+	#$FROM = $field->value;
+	#$self->log->debug("FROM field set to be $FROM");
 }
 
 
@@ -617,8 +645,8 @@ sub build_listing {
 			thread       => ($thread_count > 1 ? 1 : 0),
 			thread_id    => $post->thread,
 			thread_count => $thread_count-1,
-			date         => strftime("%e/%b", localtime $post->date),
-			#date         => scalar localtime $post->date,
+			#date         => strftime("%e/%b", localtime $post->date),
+			date         => scalar localtime $post->date,
 			postername   => $post->uid,
 			};
 	}
@@ -818,6 +846,10 @@ your password is: $password
 
 MSG
 
+	my ($field) = CPAN::Forum::Configure->search({field => "from"});
+	my $FROM = $field->value;
+	$self->log->debug("FROM field set to be $FROM");
+
 	require Mail::Sendmail;
 	import Mail::Sendmail qw(sendmail);
 	my %mail = (
@@ -831,7 +863,7 @@ MSG
 
 	# TODO: the admin should be able to configure if she wants to get messages on
 	# every new user
-	my $admin = CPAN::Forum::Username->retrieve(1);
+	my $admin = CPAN::Forum::Users->retrieve(1);
 	$mail{To} = $admin->email;
 	$mail{Subject} = "New Forum user: " . $user->username;
 	$mail{Message} = "";
@@ -882,6 +914,10 @@ http://$ENV{HTTP_HOST}/
 
 
 MSG
+
+	my ($field) = CPAN::Forum::Configure->search({field => "from"});
+	my $FROM = $field->value;
+	$self->log->debug("FROM field set to be $FROM");
 
 	require Mail::Sendmail;
 	import Mail::Sendmail qw(sendmail);
@@ -1130,8 +1166,16 @@ sub process_post {
 			push @errors, "no_group";
 		}
 	}
-	push @errors, "no_subject" if not $q->param("new_subject");
-	push @errors, "no_text"    if not $q->param("new_text");
+	
+	my $new_subject = $q->param("new_subject");
+	my $new_text = $q->param("new_text"); 
+	
+	push @errors, "no_subject" if not $new_subject;
+	my $SUBJECT = qr{[\w .:~!@#\$%^&*\()+=-]+};
+	push @errors, "invalid_subject" if $new_subject and $new_subject !~ m{^$SUBJECT$};
+	
+	push @errors, "no_text"    if not $new_text;
+	push @errors, "subject_too_long" if $new_subject and length($new_subject) > 50;
 	return $self->posts(\@errors) if @errors;
 	
 
@@ -1139,7 +1183,6 @@ sub process_post {
 	# We will save the message only if the Submit button was pressed.
 	# When the editor first displayed and every time if an error was caught this button will be hidden.
 
-	my $new_text = $q->param("new_text"); 
 	eval {
 		_posting_process($new_text) ;
 	};
@@ -1175,7 +1218,7 @@ sub process_post {
 		#warn "PG:" . $post->gid;
 	};
 	if ($@) {
-		push @errors, "subject_too_long" if $@ =~ /subject_too_long/;
+		#push @errors, "subject_too_long" if $@ =~ /subject_too_long/;
 		#warn $CPAN::Forum::Post::lasterror if $@ =~ /text_format/;
 		if (not @errors) {
 			warn "UNKNOWN_ERROR: $@";
@@ -1649,7 +1692,7 @@ sub rss {
 	my $rss = XML::RSS::SimpleGen->new( $url, "CPAN Forum", "Discussing Perl CPAN modules");
 	$rss->language( 'en' );
 
-	my $admin = CPAN::Forum::Users->retreive(1);
+	my $admin = CPAN::Forum::Users->retrieve(1);
 	$rss->webmaster($admin->email);
 
 	my $prefix = "";
@@ -1698,6 +1741,9 @@ sub notify {
 
 	my $subject = sprintf ("[%s] %s",  $post->gid->name, $post->subject);
 
+	my ($field) = CPAN::Forum::Configure->search({field => "from"});
+	my $FROM = $field->value;
+	$self->log->debug("FROM field set to be $FROM");
 	my $admin = CPAN::Forum::Users->retrieve(1);
 	# send all messages to Admin, this shuld be configurabele
 	my %mail = (
@@ -1764,6 +1810,11 @@ sub _text2mail {
 	return $_[0];
 }
 
+
+sub help {
+	$_[0]->load_tmpl("help.tmpl")->output;
+}
+
 1;
 
 =head1 ACKNOWLEDGEMENTS
@@ -1772,6 +1823,19 @@ Thanks to Offer Kaye for his initial help with HTML and CSS.
 Thanks to all those people who develop and maintain the underlying technologies.
 See L<http://www.cpanforum.com/about/> for a list of tools we used.
 In addition to Perl of course.
+
+=head1 DEVELOPMENT
+
+Subversion repository is at 
+L<http://svn.pti.co.il/svn/cpan-forum/trunk/>
+
+There is a mailing list to see the commits to the repository:
+L<http://perl.org.il/mailman/listinfo/cpan-forum-commit>
+
+Discussion of this module will take place on
+L<http://www.cpanforum.com/dist/CPAN-Forum>
+If you need help or if you'd like to offer your help.
+That's the right place to do it.
 
 =head1 BUGS
 

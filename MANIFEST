@@ -23,7 +23,7 @@ lib/CPAN/Forum/UserInGroup.pm
 t/CONFIG
 t/00.load.t
 t/001-users.t
-t/010-bbcode.t
+t/010-markup.t
 t/100-auth.t
 t/pod-coverage.t
 t/pod.t
@@ -31,6 +31,7 @@ t/02packages.details.txt
 t/lib/CGI/Application/Test.pm
 
 templates/change_password.tmpl
+templates/help.tmpl
 templates/pwreminder.tmpl
 templates/register.tmpl
 templates/editor.tmpl

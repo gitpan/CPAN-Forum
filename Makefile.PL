@@ -11,6 +11,7 @@ WriteMakefile
                            'XML::RSS::SimpleGen' => 0,
                            'DBD::SQLite' => '0.31',
                            'HTML::Template' => '2.6',
+                           'Class::DBI::Plugin::Pager' => 0,
                            'CGI' => 0,
                            'CGI::Application' => '3.31',
                            'CGI::Session::SQLite' => 0,
@@ -23,7 +24,8 @@ WriteMakefile
                            'Test::More' => '0.47',
                            'Mail::Sendmail' => 0,
                            'CGI::Application::Plugin::LogDispatch' => 0,
-                           'Test::WWW::Mechanize' => '0.02'
+                           'Test::WWW::Mechanize' => '0.02',
+                           'Class::DBI::Plugin::AbstractCount' => 0
                          }
         )
 ;

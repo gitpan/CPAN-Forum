@@ -1,17 +1,15 @@
-body { 
-	background: #dddddd; 
+BODY { 
+	background: #eeeeee; 
+	font-family: Arial;
 }
 
-#container { 
-	background: #dddddd;
-}
 .warning {
 	color: red;
 	font-size: 20pt;
 }
 
 #pageHeader { 
-	background: MidnightBlue; 
+	background: #dddddd; 
 	margin-top: 10px; 
 	margin-left: 25px; 
 	margin-bottom: 0px; 
@@ -20,18 +18,19 @@ body {
 	padding: 0px 10px 0px 10px; 
 	font-size: 30pt;
 	font-weight: bold;
-	color: white;
+	color: #555555;
 }
 
 #pageTitle { 
-	margin-top: 0px; 
 	background: white; 
+	margin-top: 0px; 
+	margin-bottom: 20px;
 	height: 18px; 
 	padding: 0px 0px 0px 20px; 
 	font-size: 12pt;
-	color: MidnightBlue;
-	margin-bottom: 20px;
-	border: MidnightBlue solid thin;
+	color: #333333;
+	border: solid thin;
+	border-color: #333333;
 }
 
 .navigation  {
@@ -39,67 +38,87 @@ body {
 	margin-bottom: 20px; 
 	font-size: 10pt;
 	text-align: center; 
-	padding-bottom:1em;
-	width: 780px;
+	padding-bottom:1px;
+/*	width: 780px;*/
 }
 
-a       {
+.message {
+	color: #000000;
+}
+TABLE.message {
+	border-width: 3;
+	border-style: groove;
+	border-collapse: no;
+	table-layout: fixed;
+	align: 
+	width: 90%;
+}
+.message_row_head {
+	background: white;
+	font-size: 10pt;
+}
+.message_row_subject {
+	background: white;
+/*	background: red;*/
+}
+
+.message_row_text {
+	background: white;
+/*	background: yellow;*/
+}
+.message_row_foot {
+	background: white;
+	font-size: 10pt;
+}
+
+
+A       {
 	color: #003399;
 }
 
-a:visited {
+A:visited {
 	color: #663399;
 }
 
-#posts { 
-	margin-left: 20px;
-}
-
-#posts h3 {
-	color: #1E90FF;
-}
-
-#posts_table { 
-	margin: 10px 0px 10px 0px;
-	border: MidnightBlue solid thin;
+TABLE.posts { 
+	margin: 5px 0px 5px 0px;
+	border: solid thin;
+	border-color: #333333;
 }
 
 .posts_head {
-	color: inherit;
 	background-color: #E8EBEF;
 	border: #B1BDC9 solid thin;
 }
 
-table {
-	border-collapse: collapse;
-	border-spacing: 0;
-	border-width: 0;
-	color: inherit;
-}
-
 .odd {
-	/*background: #20B2AA;*/
-	background: #AAAAAA;
-	color: inherit; 
+	background: #bbbbbb;
+}
+.even {
+	background: #aaaaaa;
 }
 
 .odd TD, .even TD {
-	padding: 0ex 0ex 0ex 1ex;
+	padding: 0ex 0ex 0ex 1px;
 	vertical-align: baseline;
 }
 
+/*
 .threads_odd TD {
 	background: #dddddd;
 	border-style: solid;
-	border-width: 1;
-	border-color: yellow;
+	border-width: 2px;
 }
 
 .threads_even TD {
-/*	background: #dddddd;*/
 	border-style: solid;
-	border-width: 1;
-	border-color: yellow;
+	border-width: 2px;
+}
+*/
+
+TD {
+	margin:  0;
+	padding: 0;
 }
 
 
@@ -127,12 +146,12 @@ table {
 	padding: 0.2ex 0.4ex;
 }
 
-.faq dt {
+.faq DT {
 	font-size: 1.2em;
 	font-weight: bold;
 }
 
-.faq dd {
+.faq DD {
 	margin-bottom: 10px;
 }
 
@@ -146,37 +165,32 @@ table {
 	height: 18px; 
 	padding: 0px 0px 0px 20px; 
 	font-size: 12pt;
-	color: MidnightBlue;
+	color: #333333;
 	margin-bottom: 20px;
-	border: MidnightBlue solid thin;
-}
+	border: solid thin;
+	border-color: #333333;
 }
 
 
-#posting_rules {
+.posting_rules {
 	margin-top: 10px;
 }
-
-/*
-does not work ?
-.threads TABLE {
-}
-*/
 
 
 IMG { 
 	border: 0; 
 }
+
 FORM { 
 	margin: 0; 
 }
 
-input {
+INPUT {
 	margin: 2px; 
 }
 
 .title {
-	font-size: 18pt;
+	font-size: 16pt;
 	font-weight: bold;
 }
 
@@ -197,19 +211,20 @@ input {
 
 }
 
-.subject {
-	font-weight: bold;
-}
 
 .text {
 	background: #eeeeee;
-	white-space: pre;
+/*	white-space: pre;*/
+	table-width: 80%;
 }
 .code {
 	background: #dddddd;
 	white-space: pre;
 }
 
+.nextmark {
+	color: red;
+}
 
 .preview  {
 	/*background: #444444;*/
@@ -224,33 +239,6 @@ input {
 .blurb {
 	padding: 2ex 1ex;
 	width: 70%;
-}
-
-/* ?? */
-.menubar {
-	background: #006699;
-	margin: 1ex 0;
-	padding: 1px;
-} 
-
-.menubar A {
-	padding: 0.8ex;
-	font: bold 10pt Arial,Helvetica,sans-serif;
-}
-
-.menubar A:link, .menubar A:visited {
-	color: white;
-	text-decoration: none;
-}
-
-.menubar A:hover {
-	color: #ff6600;
-	text-decoration: underline;
-}
-
-TD {
-	margin:  0;
-	padding: 0;
 }
 
 

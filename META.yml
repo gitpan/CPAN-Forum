@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: CPAN-Forum
-version: 0.10
+version: 0.10_01
 author:
   - Gabor Szabo <gabor@pti.co.il>
 abstract: Web forum application to discuss CPAN modules
@@ -12,6 +12,8 @@ requires:
   CGI::Application::Plugin::Session: 0
   CGI::Session::SQLite: 0
   Class::DBI: 0.96
+  Class::DBI::Plugin::AbstractCount: 0
+  Class::DBI::Plugin::Pager: 0
   DBD::SQLite: 0.31
   DBI: 0
   HTML::Template: 2.6
@@ -27,7 +29,7 @@ build_requires:
 provides:
   CPAN::Forum:
     file: lib/CPAN/Forum.pm
-    version: 0.10
+    version: 0.10_01
   CPAN::Forum::Build:
     file: lib/CPAN/Forum/Build.pm
   CPAN::Forum::Configure:

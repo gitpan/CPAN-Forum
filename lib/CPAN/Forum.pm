@@ -2,7 +2,7 @@ package CPAN::Forum;
 use strict;
 use warnings;
 
-our $VERSION = "0.10";
+our $VERSION = "0.10_01";
 
 use base "CGI::Application";
 use CGI::Application::Plugin::Session;
@@ -16,7 +16,7 @@ use CGI ();
 
 use CPAN::Forum::INC;
 
-my $limit       = 20;
+my $limit       = 50;
 my $limit_rss   = 10;
 my $cookiename  = "cpanforum";
 my $SUBJECT = qr{[\w .:~!@#\$%^&*\()+?><,'";=-]+};
@@ -177,7 +177,19 @@ Run:
 For some of the tests you'll have to set the CPAN_FORUM_URL environment 
 variable to the URL where you installed the forum.
 
+
+
 =head2 Changes
+
+v0.10_02
+  <p>, <br> enabled
+  Add link to Kobes Search
+  Improve full text search for posts
+  Add capability to search for module names
+
+
+v0.10
+- markup improved, bugs fixed
 
 v0.09_05
 - POD cleanup (Shlomi Fish)
@@ -203,10 +215,7 @@ for code:  <code[^>]*>  but right now only <code> should be accepted closing
 tag for code:  </code>
 
 - check all submitted fields (restrict posting size to 10.000 Kbyte ?
-- Make the site look nicer (HTML and css work)
 - Improve text and explanations.
-- Improve Legal statement, look at other sites.
-
 
 clean up documentation
 
@@ -471,6 +480,54 @@ variables) and then to construct a /cpan-forum/login/ /cpan-forum/register/
 etc. path. (or use relative URLs).
 
 
+=head2 TEMPLATES
+
+
+root templates:
+
+about.tmpl
+change_password.tmpl
+faq.tmpl
+groups.tmpl
+help.tmpl
+home.tmpl
+internal_error.tmpl
+login.tmpl
+module_search_form.tmpl
+module_select_form.tmpl
+mypan.tmpl
+notes.tmpl
+posts.tmpl
+pwreminder.tmpl
+search.tmpl
+users.tmpl
+register.tmpl
+threads.tmpl
+
+
+every root template should INCLUDE      -> head.tmpl navigation.tmpl footer.tmpl
+
+groups.tmpl            -> links.tmpl listing.tmpl     (list of messages within one group)
+home.tmpl              -> listing.tmpl                (list of messages in all the site)
+posts.tmpl             -> links.tmpl message.tmpl message.tmpl editor.tmpl  
+                                                      (single message 
+													  with or without the editor
+													  with or without a preview pane)
+search.tmpl            -> listing.tmpl                (list of messages resulted from search)
+threads.tmpl           -> links.tmpl
+users.tmpl             -> listing.tmpl                (list of messages of one user)
+
+
+Non root templates:
+links.tmpl      - a bunch of links to search.cpan.org and similar places (specific to one distro)
+listing.tmpl    - can show the titles of many messages 
+message.tmpl    - can show one message (or a preview message)
+naviagtion.tmpl -
+head.tmpl       -
+footer.tmpl     -
+
+Use this for mapping:
+grep INCLUDE *| grep -v navigation.tmpl | grep -v footer.tmpl | grep -v head.tmpl
 
 =head1 METHODS
 
@@ -538,6 +595,7 @@ my @free_modes = qw(home
 					posts threads dist users 
 					search all 
 					help
+					find_groups
 					rss ); 
 my @restricted_modes = qw(
 			new_post process_post
@@ -633,7 +691,7 @@ rm=something
 
 sub autoload {
 	my $self = shift;
-	$self->internal_error;
+	$self->internal_error();
 }
 
 
@@ -732,10 +790,11 @@ sub about {
 	my $self = shift;
 	my $t = $self->load_tmpl("about.tmpl");
 	
-	$t->param(distro_cnt => CPAN::Forum::Groups->count_all());
-	$t->param(posts_cnt  => CPAN::Forum::Posts->count_all());
-	$t->param(users_cnt  => CPAN::Forum::Users->count_all());
-	$t->param(version    => $VERSION);
+	$t->param(distro_cnt        => CPAN::Forum::Groups->count_all());
+	$t->param(posts_cnt         => CPAN::Forum::Posts->count_all());
+	$t->param(users_cnt         => CPAN::Forum::Users->count_all());
+	$t->param(subscription_cnt  => CPAN::Forum::Subscriptions->count_all());
+	$t->param(version           => $VERSION);
 
 	$t->output;
 }
@@ -755,9 +814,14 @@ Maybe this one should also receive the error message and print it to the log fil
 =cut
 
 sub internal_error {
-	my ($self, $msg) = @_;
-	cluck $msg if $msg;
+	my ($self, $msg, $tag) = @_;
+	if ($msg) {
+		$msg .= " REFERER: $ENV{HTTP_REFERER}" if $ENV{HTTP_REFERER};
+		warn $msg;
+		$self->log->debug($msg);
+	}
 	my $t = $self->load_tmpl("internal_error.tmpl");
+	$t->param($tag => 1) if $tag;
 	$t->output;
 }
 
@@ -877,7 +941,7 @@ sub register_process {
 	}
 	
 	# TODO arbitrary nickname constraint, allow other nicknames ?
-	if ($q->param('nickname') !~ /^[a-z0-9]{4,10}$/) {
+	if ($q->param('nickname') !~ /^[a-z0-9]{1,10}$/) {
 		return $self->register({"bad_nickname" => 1});
 	}
 
@@ -1121,20 +1185,23 @@ sub posts {
 				if ($gr) {
 					$new_group_id = $gr->id;
 				} else {
-					cluck "Group '$new_group' was not in database when accessed PATH_INFO: '$ENV{PATH_INFO}'";
-					return $self->internal_error;
+					return $self->internal_error(
+						"Group '$new_group' was not in database when accessed PATH_INFO: '$ENV{PATH_INFO}'",
+						);
 				}
 			} else {
-				cluck "Bad regex for '$new_group' ? Accessed PATH_INFO: '$ENV{PATH_INFO}'";
-				return $self->internal_error;
+				return $self->internal_error(
+					"Bad regex for '$new_group' ? Accessed PATH_INFO: '$ENV{PATH_INFO}'",
+					);
 			}
 		} elsif ($new_group_id) {
 			my ($gr) = CPAN::Forum::Groups->retrieve($new_group_id);
 			if ($gr) {
 				$new_group = $gr->name;
 			} else {
-				cluck "Group '$new_group_id' was not in database when accessed PATH_INFO: '$ENV{PATH_INFO}'";
-				return $self->internal_error;
+				return $self->internal_error(
+					"Group '$new_group_id' was not in database when accessed PATH_INFO: '$ENV{PATH_INFO}'",
+				);
 			}
 		} elsif ($q->param('q')) {
 			# process search later	
@@ -1145,9 +1212,11 @@ sub posts {
 	}
 	if ($rm eq "process_post") {
 		$new_group_id = $q->param("new_group");
-		return $self->internal_error(
-			"Missing new_group_id. Accessed PATH_INFO: '$ENV{PATH_INFO}'")
-			if not $new_group_id;
+		if (not $new_group_id) {
+			return $self->internal_error(
+				"Missing new_group_id. Accessed PATH_INFO: '$ENV{PATH_INFO}'",
+				);
+		}
 
 		if ($new_group_id =~ /^(\d+)$/) {
 			$new_group_id = $1;
@@ -1155,10 +1224,14 @@ sub posts {
 			if ($grp) {
 				$new_group = $grp->name;
 			} else {
-				return $self->internal_error("Bad value for new_group (id) '$new_group_id' ? Accessed PATH_INFO: '$ENV{PATH_INFO}'");
+				return $self->internal_error(
+					"Bad value for new_group (id) '$new_group_id' ? Accessed PATH_INFO: '$ENV{PATH_INFO}'",
+					);
 			} 
 		} else {
-			return $self->internal_error("Bad value for new_group (id) '$new_group_id' ? Accessed PATH_INFO: '$ENV{PATH_INFO}'");
+			return $self->internal_error(
+				"Bad value for new_group (id) '$new_group_id' ? Accessed PATH_INFO: '$ENV{PATH_INFO}'",
+				);
 		}
 	}
 	#warn $new_group;
@@ -1181,8 +1254,9 @@ sub posts {
 	if ($id) { # Show post
 		my $post = CPAN::Forum::Posts->retrieve($id);
 		if (not $post) {
-			cluck "PATH_INFO: $ENV{PATH_INFO}";
-			return $self->internal_error;
+			return $self->internal_error(
+				"PATH_INFO: $ENV{PATH_INFO}",
+				);
 		}
 		my $thread_count = CPAN::Forum::Posts->sql_count_thread($post->thread)->select_val;
 		if ($thread_count > 1) {
@@ -1207,6 +1281,7 @@ sub posts {
 		$new_group_id     = $post->gid->id;   	
 	}
 	$t->param("group_selector" => $self->_group_selector($new_group, $new_group_id));
+	$t->param(new_text     => CGI::escapeHTML($q->param("new_text")));
 	
 	# for previewing purposes:
 	# This is funky, in order to use the same template for regular show of a message and for
@@ -1289,8 +1364,9 @@ sub process_post {
 		return $self->posts(["preview"]);
 	}
 	if ($button ne "Submit") {
-		warn "Someone sent in a button called '$button'";
-		return $self->internal_error;
+		return $self->internal_error(
+			"Someone sent in a button called '$button'",
+			);
 	}
 
 	my $pid;
@@ -1313,9 +1389,9 @@ sub process_post {
 		#push @errors, "subject_too_long" if $@ =~ /subject_too_long/;
 		#warn $CPAN::Forum::Post::lasterror if $@ =~ /text_format/;
 		if (not @errors) {
-			warn "UNKNOWN_ERROR: $@";
-			cluck "PATH_INFO: $ENV{PATH_INFO}";
-			return $self->internal_error;
+			return $self->internal_error(
+				"PATH_INFO: '$ENV{PATH_INFO}'\nUNKNOWN_ERROR: $@",
+			);
 		}
 		return $self->posts(\@errors);
 	}
@@ -1392,8 +1468,9 @@ sub threads {
 
 	my @posts = CPAN::Forum::Posts->search(thread => $id);
 	if (not @posts) {
-		cluck "PATH_INFO: $ENV{PATH_INFO}";
-		return $self->internal_error;
+		return $self->internal_error(
+			"PATH_INFO: $ENV{PATH_INFO}",
+			);
 	}
 
 	my @posts_html;
@@ -1438,21 +1515,25 @@ sub dist {
 	if ($group =~ /^([\w-]+)$/) {
 		$group = $1;
 	} else {
-		warn "Probably bad regex when checking group name for $group called in $ENV{PATH_INFO}";
-		return $self->internal_error();
+		return $self->internal_error(
+			"Probably bad regex when checking group name for $group called in $ENV{PATH_INFO}",
+			);
 	}
 
 	my ($gr) = CPAN::Forum::Groups->search(name => $group);
 	if (not $gr) {
-		warn "Invalid group $group called in $ENV{PATH_INFO}";
-		return $self->internal_error();
+		return $self->internal_error(
+			"Invalid group $group called in $ENV{PATH_INFO}",
+			"no_such_group",
+			);
 	}
 	my $gid = $gr->id;
 	if ($gid =~ /^(\d+)$/) {
 		$gid = $1;
 	} else {
-		warn "Invalid gid received $gid called in $ENV{PATH_INFO}";
-		return $self->internal_error();
+		return $self->internal_error(
+			"Invalid gid received $gid called in $ENV{PATH_INFO}",
+			);
 	}
 
 
@@ -1480,8 +1561,9 @@ sub users {
 	$username = ${$self->param("path_parameters")}[0];
 
 	if (not $username) {
-		cluck "No username: PATH_INFO: $ENV{PATH_INFO}";
-		return $self->internal_error;
+		return $self->internal_error(
+			"No username: PATH_INFO: $ENV{PATH_INFO}",
+			);
 	}
 
 	my $t = $self->load_tmpl("users.tmpl",
@@ -1492,8 +1574,9 @@ sub users {
 	my ($user) = CPAN::Forum::Users->search(username => $username);
 
 	if (not $user) {
-		warn "Non existing user was accessed: $ENV{PATH_INFO}";
-		return $self->internal_error;
+		return $self->internal_error(
+			"Non existing user was accessed: $ENV{PATH_INFO}",
+			);
 	}
 
 
@@ -1553,8 +1636,9 @@ sub mypan {
 	my ($user) = CPAN::Forum::Users->search(username => $username);
 
 	if (not $user) {
-		warn "Trouble accessing personal information of: '$username' $ENV{PATH_INFO}";
-		return $self->internal_error;
+		return $self->internal_error(
+			"Trouble accessing personal information of: '$username' $ENV{PATH_INFO}",
+			);
 	}
 	my $fullname = "";
 	$fullname .= $user->fname if $user->fname;
@@ -1577,8 +1661,9 @@ sub mypan {
 		my $group = $params[1];
 		my ($grp) = CPAN::Forum::Groups->search(name => $group);
 		if (not $grp) {
-			warn "Accessing $ENV{PATH_INFO}\n";
-			return $self->internal_error;
+			return $self->internal_error(
+				"Accessing $ENV{PATH_INFO}\n",
+			);
 		}
 		$gids = $grp->id;
 		my ($s) = CPAN::Forum::Subscriptions->search(uid => $user->id, gid => $grp->id);
@@ -1629,7 +1714,7 @@ sub update_subscription {
 	#warn $q->param("gids");
 	my @gids = split /,/, $q->param("gids");
 	if (not @gids) {
-		return $self->internal_error;
+		return $self->internal_error();
 	}
 
 	my $username = $self->session->param("username");
@@ -1670,7 +1755,6 @@ sub notes {
 }
 
 
-# partially written code to select a module name
 sub module_search {
 	my ($self) = @_;
 
@@ -1688,6 +1772,7 @@ sub module_search {
 		return $self->module_serach_form(['invalid_search_term']);
 	}
 	$self->log->debug("group name search term: $txt");
+	$txt =~ s/::/-/g;
 	$txt = '%' . $txt . '%';
 	
 	my $it =  CPAN::Forum::Groups->search_like(name => $txt);
@@ -1715,12 +1800,39 @@ sub module_search {
 Search form and processor.
 
 =cut
+# not in use
+sub find_groups {
+	my $self  = shift;
+	my $q     = $self->query;
+	my $name  = $q->param("name")    || '';
+
+	if ($name =~ /(.*)/) { $name    = $1; }
+	$name =~ s/::/-/g;
+	
+	my $t = $self->load_tmpl("search.tmpl",
+		associate => $q,
+		loop_context_vars => 1,
+	);
+	my $it;
+	my @groups;
+	if ($name) {
+		my $it =  CPAN::Forum::Groups->search_like(name => $name . '%');
+		while (my $group  = $it->next) {
+			push @groups, {name => $group->name};
+		}
+	}
+	$t->param(groups => \@groups);
+
+	$t->output;
+}
+
 
 sub search {
 	my $self = shift;
 
-	my $q = $self->query;
-	my $txt = $q->param("q");
+	my $q       = $self->query;
+	my $subject = $q->param("subject") || '' ;
+	my $text    = $q->param("text")    || '';
 	
 	my $t = $self->load_tmpl("search.tmpl",
 		associate => $q,
@@ -1728,13 +1840,17 @@ sub search {
 	);
 
 	# kill the taint checking (why do I use taint checking if I kill it then ?)
-	if ($txt =~ /(.*)/) {
-		$txt = $1;
-	}
+	if ($text    =~ /(.*)/) { $text    = $1; }
+	if ($subject =~ /(.*)/) { $subject = $1; }
 
-	if ($txt) {
-		my $it =  CPAN::Forum::Posts->search_like(text => '%' . $txt . '%');
-		my $cnt = CPAN::Forum::Posts->sql_count_like("text", '%' . $txt . '%')->select_val;
+	my %search;
+
+	if ($text)    { $search{text}    = '%' . $text    . '%'; }
+	if ($subject) { $search{subject} = '%' . $subject . '%'; }
+
+	if (%search) {
+		my $it =  CPAN::Forum::Posts->search_like(%search);
+		my $cnt = CPAN::Forum::Posts->sql_count_like(%search)->select_val;
 		$t->param(messages => $self->build_listing($it,$cnt));
 	}
 
@@ -1892,7 +2008,8 @@ sub help {
 
 =head1 ACKNOWLEDGEMENTS
 
-Thanks to Offer Kaye for his initial help with HTML and CSS.  Thanks to all
+Thanks to Offer Kaye for his initial help with HTML and CSS.  Thanks
+to Shlomi Fish for some patches. Thanks to all
 the people who develop and maintain the underlying technologies.  See
 L<http://www.cpanforum.com/about/> for a list of tools we used.  In addition to
 Perl of course.

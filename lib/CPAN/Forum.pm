@@ -2,7 +2,7 @@ package CPAN::Forum;
 use strict;
 use warnings;
 
-our $VERSION = "0.10_01";
+our $VERSION = "0.11";
 
 use base "CGI::Application";
 use CGI::Application::Plugin::Session;
@@ -16,7 +16,7 @@ use CGI ();
 
 use CPAN::Forum::INC;
 
-my $limit       = 50;
+my $limit       = 20;
 my $limit_rss   = 10;
 my $cookiename  = "cpanforum";
 my $SUBJECT = qr{[\w .:~!@#\$%^&*\()+?><,'";=-]+};
@@ -181,6 +181,21 @@ variable to the URL where you installed the forum.
 
 =head2 Changes
 
+v0.11
+  Search for users
+  Unite the serch methods
+  Accept both upper-case and lower-case HTML tags and turn them all to lower 
+    case tags when displaying
+  Accept <a href=> tags for http and mailto
+  Admin page
+  Admin can change "From" e-address
+  Enable <i>, <b> <br> and <a ..> with <p></p> pairs
+  Remove the selection box from the post interface as it was not used there.
+  Put the search form on the home page as well.
+  Admin can change e-mail address of any user
+  Add paging
+ 
+
 v0.10_02
   <p>, <br> enabled
   Add link to Kobes Search
@@ -209,6 +224,22 @@ at both ends of the typed in word.
 
 
 =head2 TODO
+
+- Enable people to subscribe to all messages or all thread starters or all followups
+  (probably group = 0 will do it)
+- Add announcement service (check for new versions of modules and send e-mail
+  to those whom are interested in announcements.
+- Put time ellapsed since post instead of date of post, (3 min. 6 hours 3 days ago)
+  make this configurabel: User can say after N days passed the date should show,
+  before that the ellapsed time
+- Admin: hide a posting
+- Admin: delete a user
+- Admin: add a new module manually
+- Script that populates databse should not lock the whole database for a long time
+  Maybe it should fetch all the data to memory and work there.
+- make paging available responses 1..10, 11.20, etc, 
+
+
 
 - Decide on Basic Markup language and how to extend for shortcuts opening tag
 for code:  <code[^>]*>  but right now only <code> should be accepted closing
@@ -241,8 +272,6 @@ address from auth he might not want to give, for this case we should have our
 way to update the locally updated username, full name and validated e-mail
 address.
   
---- For XYZ we have to see how they work
-
 -- For local credentials we need the user to give us 
 username/password/fullname and validated e-mail address.
 
@@ -251,11 +280,6 @@ We have to make sure that usernames which are displayed don't collide. Maybe we
 should use separate fields for usernames from various sources and when
 displayed we might prefix it auth:gabor, local:gabor etc.  Not nice, any better
 way ?
-
-- Add constraint checking to every field that the user can change by submitting
-information.  
-
-- Finalize markup
 
 Subject field:
 -  <= 50 chars
@@ -300,11 +324,8 @@ one module to another module or group.
 Hmm, do I really need this ? maybe as I cannot just delete a user. (added a 
 status field that is not used currently)
 
-=head1 TODO Nice to have
+- Replace the /post/number link by /post/TITLE_OF_POST ???
 
-- Make sure adding a new module works fine
-
-- make paging available responses 1..10, 11.20, etc, 
 
 OK, so we have listing in places like
 
@@ -331,11 +352,7 @@ We'll also have some search facility that will be a post operation and
 From the forms we have post methods so no need for URL munging
 process_post  =>  (show previous post)? show editor + show preview
 
-=head1 TODO Next release only
-
 - make the page size (for paging) user configurable
-
-- Notify user
 
 =over 4
 
@@ -595,11 +612,14 @@ my @free_modes = qw(home
 					posts threads dist users 
 					search all 
 					help
-					find_groups
 					rss ); 
 my @restricted_modes = qw(
 			new_post process_post
 			mypan 
+			admin
+			admin_process
+			admin_edit_user
+			admin_edit_user_process
 			response_form 
 			module_search
 			selfconfig change_password update_subscription); 
@@ -613,6 +633,8 @@ my @urls = qw(
 	threads dist users 
 	response_form 
 	faq 
+	admin
+	admin_edit_user
 	mypan selfconfig 
 	search all rss); 
 
@@ -667,7 +689,8 @@ sub cgiapp_prerun {
 		
 	}
 
-	$self->log->debug("Current runmode:  $rm");
+	$self->log->debug("Current runmode:  $rm"); 
+	$self->log->debug("Current user:  " . ($self->session->param("username") || ""));
 
 	return if grep {$rm eq $_} @free_modes;
 	#return if not grep {$rm eq $_} @restricted_modes;
@@ -703,53 +726,47 @@ most recent posts.
 =cut
 sub home {
 	my $self = shift;
+	my $q = $self->query;
 	
 	my $t = $self->load_tmpl("home.tmpl",
 		loop_context_vars => 1,
 	);
 	
-	my $from = ${$self->param("path_parameters")}[1] || 0;
-	my $cnt  = ${$self->param("path_parameters")}[2] || $limit;
-	$t->param(messages => $self->build_listing(
-			scalar CPAN::Forum::Posts->retrieve_latest($from+$cnt),
-			CPAN::Forum::Posts->count_all(),
-			));
-
+	my $page = $q->param('page') || 1;
+	$self->_search_results($t, {where => {}, page => $page, per_page => $limit});
 	$t->output;
+}
+
+sub _search_results {
+	my ($self, $t, $params) = @_;
+	
+	my $pager   = CPAN::Forum::Posts->mysearch($params);
+	my @results = $pager->search_where();
+    my $total   = $pager->total_entries;
+	$self->log->debug("number of entries: total=$total");
+    #$self->session->param('per_page'     => $per_page);
+    #$self->session->param('current_page' => $pager->current_page);
+	my $data = $self->build_listing(\@results);
+
+    $t->param(messages       => $data);
+    $t->param(total          => $total);
+    $t->param(previous_page  => $pager->previous_page);
+    $t->param(next_page      => $pager->next_page);
+    $t->param(first_entry    => $pager->first);
+    $t->param(last_entry     => $pager->last);
+    $t->param(first_page     => 1)                      if $pager->current_page != 1;
+    $t->param(last_page      => $pager->last_page)      if $pager->current_page != $pager->last_page;
 }
 
 sub all {
 	home(@_);
 }
 
-=head2 build_listing
-
-Receives a CPAN::Forum::Posts iterator and optionally two numbers
-Builds an array of hashes from all the posts or those in the given range
-and returns the array reference.
-
-=cut
-
 sub build_listing {
-	my ($self, $it, $total) = @_;
-	$self->log->debug("build_listing: total=$total");
-	
-	my $from = ${$self->param("path_parameters")}[1] || 0;
-	my $cnt  = ${$self->param("path_parameters")}[2] || $limit;
-	my $to   = $from+$cnt-1;
+	my ($self, $it) = @_;
 	
 	my @resp;
-	if ($to) {
-		$it = $it->slice($from, $to);
-	}
-
-	#my $start = $from % $cnt;
-	
-	
-	
-
-	while (my $post = $it->next) {
-		#(my $dashgroup = $post->gid) =~ s/::/-/g;
+	foreach my $post (@$it) {
 		my $thread_count = CPAN::Forum::Posts->sql_count_thread($post->thread)->select_val;
 		push @resp, {
 			subject      => _subject_escape($post->subject), 
@@ -767,6 +784,7 @@ sub build_listing {
 	#@resp = reverse @resp if $to; # Otherwise we fetched in DESC order
 	return \@resp;
 }
+
 
 =head2 redirect_home
 
@@ -795,6 +813,12 @@ sub about {
 	$t->param(users_cnt         => CPAN::Forum::Users->count_all());
 	$t->param(subscription_cnt  => CPAN::Forum::Subscriptions->count_all());
 	$t->param(version           => $VERSION);
+	# number of posts per group name, can create some xml feed from it that can
+	# be used by search.cpan.org and Kobes to add a number of posts next to the link
+	#select count(*),groups.name from posts, groups where groups.id=gid group by gid;
+	#
+	#count posts for a specific group:
+	#select count(*) from posts, groups where groups.id=gid and groups.name="CPAN-Forum";
 
 	$t->output;
 }
@@ -822,6 +846,7 @@ sub internal_error {
 	}
 	my $t = $self->load_tmpl("internal_error.tmpl");
 	$t->param($tag => 1) if $tag;
+	$t->param(generic => 1) if not $tag;
 	$t->output;
 }
 
@@ -840,6 +865,7 @@ sub load_tmpl {
 	$t->param("loggedin" => $self->session->param("loggedin") || "");
 	$t->param("username" => $self->session->param("username") || "anonymous");
 	$t->param("test_site_warning" => -e $self->param("ROOT") . "/config_test_site");
+	$t->param("admin" => $self->session->param('admin'));
 	return $t;
 }
 # config_fake_login  (not used currently)
@@ -885,12 +911,20 @@ sub login_process {
 	}
 
 	my $session = $self->session;
+	$session->param(admin     => 0); # make sure it is clean
+
 	$session->param(loggedin  => 1);
 	$session->param(username  => $user->username);
 	$session->param(uid       => $user->id);
 	$session->param(fname     => $user->fname); # TODO
 	$session->param(lname     => $user->lname); # TODO
 	$session->param(email     => $user->email);
+	foreach my $g (CPAN::Forum::Usergroups->search_ugs($user->id)) {
+		$self->log->debug("UserGroups: " . $g->name);
+		if ($g->name eq "admin") {
+			$session->param(admin     => 1);
+		}
+	}
 
 	my $request = $session->param("request") || "";
 	$session->param("request" => "");
@@ -1022,6 +1056,7 @@ sub pwreminder {
 	);
 
 	$t->param($errs) if $errs;
+	$t->param($q->param('field') => 1);
 	return $t->output;
 }
 
@@ -1029,16 +1064,12 @@ sub pwreminder {
 sub pwreminder_process {
 	my ($self) = @_;
 	my $q = $self->query;
-	if (not $q->param('nickname') and not $q->param('email')) {
+	my $field = $q->param('field');
+	if (not $field or $field !~ /^username|email$/ or not $q->param('value')) {
 		return $self->pwreminder({"no_data" => 1});
 	}
 
-	my $user;
-	if ($q->param('nickname')) {
-		($user) = CPAN::Forum::Users->search({username => $q->param('nickname')});
-	} else {
-		($user) = CPAN::Forum::Users->search({email    => $q->param('email')});
-	};
+	my ($user) = CPAN::Forum::Users->search({$field => $q->param('value')});
 	return $self->pwreminder({"no_data" => 1}) if not $user;
 
 	# TODO: put this text in a template
@@ -1055,8 +1086,8 @@ http://$ENV{HTTP_HOST}/
 
 MSG
 
-	my ($field) = CPAN::Forum::Configure->search({field => "from"});
-	my $FROM = $field->value;
+	my ($from) = CPAN::Forum::Configure->search({field => "from"});
+	my $FROM = $from->value;
 	$self->log->debug("FROM field set to be $FROM");
 
 	my %mail = (
@@ -1172,11 +1203,12 @@ sub posts {
 	$self->log->debug("posts rm=$rm");
 
 	my $new_group = "";
-	my $new_group_id;
+	my $new_group_id = "";
 	
 	if ($rm eq "new_post") {
 		$new_group = ${$self->param("path_parameters")}[0] || "";
 		$new_group_id = $q->param('new_group') if $q->param('new_group');
+		$self->log->debug("A: new_group: '$new_group' and id: '$new_group_id'");
 		
 		if ($new_group) {
 			if ($new_group =~ /^([\w-]+)$/) {
@@ -1209,9 +1241,10 @@ sub posts {
 			# TODO should be called whent the module_search is ready
 			return $self->module_serach_form();
 		}
+		$self->log->debug("B: new_group: '$new_group' and id: '$new_group_id'");
 	}
 	if ($rm eq "process_post") {
-		$new_group_id = $q->param("new_group");
+		$new_group_id = $q->param("new_group_id");
 		if (not $new_group_id) {
 			return $self->internal_error(
 				"Missing new_group_id. Accessed PATH_INFO: '$ENV{PATH_INFO}'",
@@ -1234,12 +1267,7 @@ sub posts {
 				);
 		}
 	}
-	#warn $new_group;
-	#warn $new_group_id;
-
-	#$new_group =~ s/-/::/g;
-	#(my $dashgroup = $new_group) =~ s/::/-/g;
-	#$t->param(dashgroup => $dashgroup);
+	$self->log->debug("C: new_group: '$new_group' and id: '$new_group_id'");
 
 	my $title = ""; # of the page
 	my $editor = 0;
@@ -1280,7 +1308,10 @@ sub posts {
 		$new_group        = $post->gid->name;
 		$new_group_id     = $post->gid->id;   	
 	}
-	$t->param("group_selector" => $self->_group_selector($new_group, $new_group_id));
+	$self->log->debug("D: new_group: '$new_group' and id: '$new_group_id'");
+	#$t->param("group_selector" => $self->_group_selector($new_group, $new_group_id));
+	$t->param(new_group    => $new_group);
+	$t->param(new_group_id => $new_group_id);
 	$t->param(new_text     => CGI::escapeHTML($q->param("new_text")));
 	
 	# for previewing purposes:
@@ -1326,8 +1357,8 @@ sub process_post {
 		($parent_post) = CPAN::Forum::Posts->search(id => $parent);
 		push @errors, "bad_thing"  if not $parent_post;
 	} else {       # assume new post
-		if ($q->param("new_group")) {
-			push @errors, "bad_group"  if not CPAN::Forum::Groups->search(id => $q->param("new_group"));
+		if ($q->param("new_group_id")) {
+			push @errors, "bad_group"  if not CPAN::Forum::Groups->search(id => $q->param("new_group_id"));
 		} else {
 			push @errors, "no_group";
 		}
@@ -1373,7 +1404,7 @@ sub process_post {
 	eval {
 		my $post = CPAN::Forum::Posts->create({
 			uid     => $self->session->param("username"),
-			gid     => $parent_post ? $parent_post->gid : $q->param("new_group"),
+			gid     => $parent_post ? $parent_post->gid : $q->param("new_group_id"),
 			subject => $q->param("new_subject"),
 			text    => $new_text,
 			date    => time,
@@ -1382,8 +1413,6 @@ sub process_post {
 		$post->parent($parent) if $parent_post;
 		$post->update;
 		$pid = $post->id;
-		#warn $parent_post ? $parent_post->gid : $q->param("new_group");
-		#warn "PG:" . $post->gid;
 	};
 	if ($@) {
 		#push @errors, "subject_too_long" if $@ =~ /subject_too_long/;
@@ -1536,14 +1565,9 @@ sub dist {
 			);
 	}
 
-
-	$t->param(messages => $self->build_listing(
-			scalar CPAN::Forum::Posts->search(gid => $gid, {order_by => 'date DESC'}),
-			CPAN::Forum::Posts->sql_count_where("gid", $gid)->select_val,
-			));
-
+	my $page = $q->param('page') || 1;
+	$self->_search_results($t, {where => {gid => $gid}, page => $page, per_page => $limit});
 	$t->output;
-
 }
 
 =head2 users
@@ -1590,10 +1614,8 @@ sub users {
 	$t->param(this_fullname => $fullname);
 	$t->param(title => "Information about $username");
 
-	$t->param(messages => $self->build_listing(
-			scalar CPAN::Forum::Posts->search(uid => $username, {order_by => 'date DESC'}),
-			CPAN::Forum::Posts->sql_count_where("uid", $username)->select_val,
-			));
+	my $page = $q->param('page') || 1;
+	$self->_search_results($t, {where => {uid => $username}, page => $page, per_page => $limit});
 	$t->output;
 }
 
@@ -1795,65 +1817,148 @@ sub module_search {
 	$t->output;
 }
 
-=head2 search
+sub search {
+	my ($self) = @_;
+	my $q      = $self->query;
+	my $name   = $q->param("name")    || '';
+	my $what   = $q->param("what")    || '';
 
-Search form and processor.
-
-=cut
-# not in use
-sub find_groups {
-	my $self  = shift;
-	my $q     = $self->query;
-	my $name  = $q->param("name")    || '';
-
+	# kill the taint checking (why do I use taint checking if I kill it then ?)
 	if ($name =~ /(.*)/) { $name    = $1; }
-	$name =~ s/::/-/g;
+	$name =~ s/::/-/g if $what eq "module";
 	
 	my $t = $self->load_tmpl("search.tmpl",
 		associate => $q,
 		loop_context_vars => 1,
 	);
 	my $it;
-	my @groups;
-	if ($name) {
-		my $it =  CPAN::Forum::Groups->search_like(name => $name . '%');
-		while (my $group  = $it->next) {
-			push @groups, {name => $group->name};
+
+	if (not $what and not $name) {
+		$what = $self->session->param('search_what');
+		$name = $self->session->param('search_name');
+	}
+
+	$self->session->param(search_what => $what);
+	$self->session->param(search_name => $name);
+
+	if ($what and $name) {
+		if ($what eq "module") {
+			my @things;
+			my $it =  CPAN::Forum::Groups->search_like(name => $name . '%');
+			while (my $group  = $it->next) {
+				push @things, {name => $group->name};
+			}
+			$t->param(groups => \@things);
+			$t->param($what => 1);
+		} elsif ($what eq "user") {
+			my @things;
+			my $it =  CPAN::Forum::Users->search_like(username => '%' . lc($name) . '%');
+			while (my $user  = $it->next) {
+				push @things, {username => $user->username};
+			}
+			$t->param(users => \@things);
+			$t->param($what => 1);
+		} else {
+			my %where;
+			if ($what eq "subject") { %where = (subject => {'LIKE', '%' . $name . '%'}); }
+			if ($what eq "text")    { %where = (text    => {'LIKE', '%' . $name . '%'}); }
+			$self->log->debug("Search 1: " . join "|", %where);
+			if (%where) {
+
+				$self->log->debug("Search 2: " . join "|", %where);
+
+				my $page = $q->param('page') || 1;
+				$self->_search_results($t, {where => \%where, page => $page, per_page => $limit});
+
+				$t->param($what => 1);
+			}
 		}
 	}
-	$t->param(groups => \@groups);
+	$t->output;
+}
 
+sub admin_edit_user_process {
+	my ($self) = @_;
+	if (not $self->session->param("admin")) {
+		return $self->internal_error("", "restricted_area");
+	}
+	my $q = $self->query;
+	my $email = $q->param('email');
+	my $uid   = $q->param('uid'); # TODO error checking here !
+
+	$self->log->debug("admin_edit_user_process uid: '$uid'");
+	my ($person) = CPAN::Forum::Users->retrieve($uid);
+	if (not $person) {
+		return $self->internal_error("", "no_such_user");
+	}
+	$person->email($email);
+	$person->update;
+
+	$self->admin_edit_user($person->username, ['done']);
+}
+
+sub admin_edit_user {
+	my ($self, $username, $errors) = @_;
+	if (not $self->session->param("admin")) {
+		return $self->internal_error("", "restricted_area");
+	}
+	my $q = $self->query;
+	if (not $username) {
+		$username = ${$self->param("path_parameters")}[0] || '';
+	}
+	$self->log->debug("admin_edit_user username: '$username'");
+
+	my ($person) = CPAN::Forum::Users->search(username => $username);
+	if (not $person) {
+		return $self->internal_error("", "no_such_user");
+	}
+
+	my $t = $self->load_tmpl("admin_edit_user.tmpl");
+	$t->param(this_username => $username);
+	$t->param(email => $person->email);
+	$t->param(uid   => $person->id);
+
+	if ($errors and ref($errors) eq "ARRAY") {
+		$t->param($_ => 1) foreach @$errors;
+	}
+
+	$t->output;
+
+}
+
+sub admin_process {
+	my ($self) = @_;
+	if (not $self->session->param("admin")) {
+		return $self->internal_error("", "restricted_area");
+	}
+	my $q = $self->query;
+
+	if (my ($conf) = CPAN::Forum::Configure->search(field => 'from')) {
+		$self->log->debug("Old FROM field was " . $conf->value);
+		$conf->value($q->param('from'));
+		$self->log->debug("New FROM field set to be " . $q->param('from'));
+		$conf->update;
+	} else {
+		$self->log->fatal("Could not find from field !!");
+	}
+
+	my $t = $self->load_tmpl("admin.tmpl");
+	$t->param(updated => 1);
 	$t->output;
 }
 
 
-sub search {
-	my $self = shift;
-
-	my $q       = $self->query;
-	my $subject = $q->param("subject") || '' ;
-	my $text    = $q->param("text")    || '';
-	
-	my $t = $self->load_tmpl("search.tmpl",
-		associate => $q,
-		loop_context_vars => 1,
-	);
-
-	# kill the taint checking (why do I use taint checking if I kill it then ?)
-	if ($text    =~ /(.*)/) { $text    = $1; }
-	if ($subject =~ /(.*)/) { $subject = $1; }
-
-	my %search;
-
-	if ($text)    { $search{text}    = '%' . $text    . '%'; }
-	if ($subject) { $search{subject} = '%' . $subject . '%'; }
-
-	if (%search) {
-		my $it =  CPAN::Forum::Posts->search_like(%search);
-		my $cnt = CPAN::Forum::Posts->sql_count_like(%search)->select_val;
-		$t->param(messages => $self->build_listing($it,$cnt));
+sub admin {
+	my ($self) = @_;
+	if (not $self->session->param("admin")) {
+		return $self->internal_error("", "restricted_area");
 	}
-
+	my %data;
+	foreach my $c (CPAN::Forum::Configure->retrieve_all()) {
+		$data{$c->field} = $c->value;
+	}
+	my $t = $self->load_tmpl("admin.tmpl");
+	$t->param(%data);
 	$t->output;
 }
 
@@ -2003,6 +2108,7 @@ sub _text2mail {
 sub help {
 	$_[0]->load_tmpl("help.tmpl")->output;
 }
+
 
 1;
 

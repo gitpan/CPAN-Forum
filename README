@@ -120,6 +120,14 @@ INSTALLATION
     variable to the URL where you installed the forum.
 
   Changes
+    v0.11 Search for users Unite the serch methods Accept both upper-case
+    and lower-case HTML tags and turn them all to lower case tags when
+    displaying Accept <a href=> tags for http and mailto Admin page Admin
+    can change "From" e-address Enable <i>, <b> <br> and <a ..> with <p></p>
+    pairs Remove the selection box from the post interface as it was not
+    used there. Put the search form on the home page as well. Admin can
+    change e-mail address of any user Add paging
+
     v0.10_02 <p>, <br> enabled Add link to Kobes Search Improve full text
     search for posts Add capability to search for module names
 
@@ -141,6 +149,18 @@ INSTALLATION
     LIKE search and we add % signs at both ends of the typed in word.
 
   TODO
+    - Enable people to subscribe to all messages or all thread starters or
+    all followups (probably group = 0 will do it) - Add announcement service
+    (check for new versions of modules and send e-mail to those whom are
+    interested in announcements. - Put time ellapsed since post instead of
+    date of post, (3 min. 6 hours 3 days ago) make this configurabel: User
+    can say after N days passed the date should show, before that the
+    ellapsed time - Admin: hide a posting - Admin: delete a user - Admin:
+    add a new module manually - Script that populates databse should not
+    lock the whole database for a long time Maybe it should fetch all the
+    data to memory and work there. - make paging available responses 1..10,
+    11.20, etc,
+
     - Decide on Basic Markup language and how to extend for shortcuts
     opening tag for code: <code[^>]*> but right now only <code> should be
     accepted closing tag for code: </code>
@@ -169,8 +189,6 @@ INSTALLATION
     want to give, for this case we should have our way to update the locally
     updated username, full name and validated e-mail address.
 
-    --- For XYZ we have to see how they work
-
     -- For local credentials we need the user to give us
     username/password/fullname and validated e-mail address.
 
@@ -178,11 +196,6 @@ INSTALLATION
     Maybe we should use separate fields for usernames from various sources
     and when displayed we might prefix it auth:gabor, local:gabor etc. Not
     nice, any better way ?
-
-    - Add constraint checking to every field that the user can change by
-    submitting information.
-
-    - Finalize markup
 
     Subject field: - <= 50 chars - Can contain any characters, we'll escape
     them when showing on the web site
@@ -223,10 +236,7 @@ INSTALLATION
     disable the user) Hmm, do I really need this ? maybe as I cannot just
     delete a user. (added a status field that is not used currently)
 
-TODO Nice to have
-    - Make sure adding a new module works fine
-
-    - make paging available responses 1..10, 11.20, etc,
+    - Replace the /post/number link by /post/TITLE_OF_POST ???
 
     OK, so we have listing in places like
 
@@ -251,10 +261,7 @@ TODO Nice to have
     From the forms we have post methods so no need for URL munging
     process_post => (show previous post)? show editor + show preview
 
-TODO Next release only
     - make the page size (for paging) user configurable
-
-    - Notify user
 
         A user can ask to be notified upon the following events per
         distribution. subscriptions: uid, gid, (all), (starter),
@@ -443,11 +450,6 @@ METHODS
     This the default run mode, it shows the home page that includes the list
     of most recent posts.
 
-  build_listing
-    Receives a CPAN::Forum::Posts iterator and optionally two numbers Builds
-    an array of hashes from all the posts or those in the given range and
-    returns the array reference.
-
   redirect_home
     Just to easily redirect to the home page
 
@@ -503,9 +505,6 @@ METHODS
   mypan
     Planned to be the manager for the notify subscription, currently not in
     use.
-
-  search
-    Search form and processor.
 
   rss
     Provide RSS feed /rss latest 20 entries /rss/dist/Distro-Name latest 20

@@ -10,18 +10,20 @@ WriteMakefile
                            'Parse::CPAN::Packages' => 0,
                            'XML::RSS::SimpleGen' => 0,
                            'DBD::SQLite' => '0.31',
-                           'WWW::Mechanize' => 0,
                            'HTML::Template' => '2.6',
-                           'Class::DBI' => '0.96',
                            'CGI' => 0,
-                           'Test::More' => '0.47',
-                           'CGI::Application' => '3.22',
-                           'Mail::Sendmail' => 0,
-                           'CGI::Application::Plugin::LogDispatch' => 0,
+                           'CGI::Application' => '3.31',
+                           'CGI::Session::SQLite' => 0,
                            'CGI::Application::Plugin::Session' => 0,
                            'LWP::Simple' => 0,
-                           'Test::WWW::Mechanize' => '0.02',
-                           'DBI' => 0
+                           'DBI' => 0,
+                           'WWW::Mechanize' => 0,
+                           'Class::DBI' => '0.96',
+                           'Parse::RecDescent' => 0,
+                           'Test::More' => '0.47',
+                           'Mail::Sendmail' => 0,
+                           'CGI::Application::Plugin::LogDispatch' => 0,
+                           'Test::WWW::Mechanize' => '0.02'
                          }
         )
 ;

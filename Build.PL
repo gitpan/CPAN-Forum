@@ -7,15 +7,15 @@ use FindBin qw($Bin);
 use CPAN::Forum::Build;
 
 my $builder = CPAN::Forum::Build->new(
-    module_name         => 'CPAN::Forum',
-    license             => 'perl',
-    dist_version_from   => 'lib/CPAN/Forum.pm',
+	module_name         => 'CPAN::Forum',
+	license             => 'perl',
+	dist_version_from   => 'lib/CPAN/Forum.pm',
 	create_readme       => 1,
 	create_makefile_pl => 'traditional',
-    requires            => {
+	requires            => {
 		'HTML::Template'                        => 2.6,
 		'CGI'                                   => 0,
-		'CGI::Application'                      => 3.22,
+		'CGI::Application'                      => 3.31,
 		'CGI::Application::Plugin::Session'     => 0,
 		'CGI::Application::Plugin::LogDispatch' => 0,
 		
@@ -33,7 +33,9 @@ my $builder = CPAN::Forum::Build->new(
 		'LWP::Simple'                           => 0,  # for populate
 		'XML::RSS::SimpleGen'                   => 0,  # for, well RSS generation
 		'Mail::Sendmail'                        => 0,  
-    },
+		'CGI::Session::SQLite'                  => 0,
+		'Parse::RecDescent'                     => 0,
+	},
 	build_requires => {
 		'Test::WWW::Mechanize'       => 0.02,
 	},
